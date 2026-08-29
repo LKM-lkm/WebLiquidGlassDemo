@@ -1,5 +1,12 @@
 import React, { useMemo } from 'react';
-import { gu, yu, xu, vu, De, Tu } from '../lib/glass-logic';
+import {
+  computeRefractionCurve,
+  bakeDisplacementMap,
+  bakeSpecularLayer,
+  bakeMagnificationMap,
+  imageDataToDataURL,
+  squircleProfile,
+} from '../lib/glass-logic';
 
 interface GlassFilterProps {
   id: string;
@@ -34,62 +41,67 @@ export const GlassFilter: React.FC<GlassFilterProps> = ({
   refractionSaturation = 1.2,
   magnifyingScale,
   colorScheme,
-  dpr = window.devicePixelRatio || 1
+  dpr = window.devicePixelRatio || 1,
 }) => {
-  const bezelHeightFn = Tu.fn;
-
-  // 1. Calculate displacement map
-  const x = useMemo(() => gu(glassThickness, bezelWidth, bezelHeightFn, refractiveIndex),
-    [glassThickness, bezelWidth, refractiveIndex]);
-
-  const p = useMemo(() => Math.max(...x.map(q => Math.abs(q))), [x]);
-
-  const P = useMemo(() =>
-    yu(width, height, width, height, radius, bezelWidth, p, x, dpr),
-    [width, height, radius, bezelWidth, p, x, dpr]
+  // 1. Refraction displacement map
+  const refractionCurve = useMemo(
+    () => computeRefractionCurve(glassThickness, bezelWidth, squircleProfile, refractiveIndex),
+    [glassThickness, bezelWidth, refractiveIndex],
   );
 
-  const b = useMemo(() => De(P), [P]);
+  const maxOffset = useMemo(
+    () => Math.max(...refractionCurve.map(v => Math.abs(v))),
+    [refractionCurve],
+  );
 
-  // 2. Calculate specular layer
-  // Invert the hardness slider so larger == harder (while maintaining the default 2 intersection at 2)
-  const mappedHardness = 4 / Math.max(0.1, specularHardness);
-  const T = useMemo(() => xu(width, height, radius, bezelWidth, 1.047, dpr, mappedHardness),
-    [width, height, radius, bezelWidth, dpr, mappedHardness]);
+  const displacementData = useMemo(
+    () => bakeDisplacementMap(width, height, width, height, radius, bezelWidth, maxOffset, refractionCurve, dpr),
+    [width, height, radius, bezelWidth, maxOffset, refractionCurve, dpr],
+  );
 
-  const M = useMemo(() => De(T), [T]);
+  const displacementURL = useMemo(() => imageDataToDataURL(displacementData), [displacementData]);
 
-  // 3. Magnifying displacement map
-  const A = useMemo(() => magnifyingScale !== undefined ? vu(width, height) : undefined,
-    [magnifyingScale, width, height]);
+  // 2. Specular highlight map
+  const invertedHardness = 4 / Math.max(0.1, specularHardness);
+  const specularData = useMemo(
+    () => bakeSpecularLayer(width, height, radius, bezelWidth, Math.PI / 3, dpr, invertedHardness),
+    [width, height, radius, bezelWidth, dpr, invertedHardness],
+  );
 
-  const V = useMemo(() => A ? De(A) : undefined, [A]);
+  const specularURL = useMemo(() => imageDataToDataURL(specularData), [specularData]);
 
-  const C = p * scaleRatio;
+  // 3. Optional magnification map
+  const magnifyData = useMemo(
+    () => (magnifyingScale !== undefined ? bakeMagnificationMap(width, height) : undefined),
+    [magnifyingScale, width, height],
+  );
 
-  // Color schemas (if needed)
-  const darkMatrix = "0.8 0 0 0 0  0 0.8 0 0 0  0 0 0.8 0 0  0 0 0 1 0";
-  const lightMatrix = "1.2 0 0 0 0  0 1.2 0 0 0  0 0 1.2 0 0  0 0 0 1 0";
+  const magnifyURL = useMemo(() => (magnifyData ? imageDataToDataURL(magnifyData) : undefined), [magnifyData]);
+
+  const displacementScale = maxOffset * scaleRatio;
+
+  const darkMatrix = '0.8 0 0 0 0  0 0.8 0 0 0  0 0 0.8 0 0  0 0 0 1 0';
+  const lightMatrix = '1.2 0 0 0 0  0 1.2 0 0 0  0 0 1.2 0 0  0 0 0 1 0';
 
   return (
-    <svg style={{ display: "none" }} colorInterpolationFilters="sRGB">
+    <svg style={{ display: 'none' }} colorInterpolationFilters="sRGB">
       <defs>
-        <filter 
-          id={id} 
-          x={-width * 0.2} 
-          y={-height * 0.2} 
-          width={width * 1.4} 
-          height={height * 1.4} 
+        <filter
+          id={id}
+          x={-width * 0.2}
+          y={-height * 0.2}
+          width={width * 1.4}
+          height={height * 1.4}
           primitiveUnits="userSpaceOnUse"
           colorInterpolationFilters="sRGB"
         >
-          {/* Magnifying layer */}
-          {magnifyingScale !== undefined && V && (
+          {/* Magnifying layer (optional) */}
+          {magnifyingScale !== undefined && magnifyURL && (
             <>
-              <feImage href={V} result="magnifying_displacement_map" x="0" y="0" width={width} height={height} preserveAspectRatio="none" />
+              <feImage href={magnifyURL} result="magnify_map" x="0" y="0" width={width} height={height} preserveAspectRatio="none" />
               <feDisplacementMap
                 in="SourceGraphic"
-                in2="magnifying_displacement_map"
+                in2="magnify_map"
                 scale={magnifyingScale}
                 xChannelSelector="R"
                 yChannelSelector="G"
@@ -99,29 +111,29 @@ export const GlassFilter: React.FC<GlassFilterProps> = ({
             </>
           )}
 
-          {/* Color Scheme Adjustment */}
+          {/* Color scheme adjustment */}
           {colorScheme && (
             <feColorMatrix
-              in={magnifyingScale !== undefined ? "magnified_source" : "SourceGraphic"}
+              in={magnifyingScale !== undefined ? 'magnified_source' : 'SourceGraphic'}
               type="matrix"
               values={colorScheme === 'dark' ? darkMatrix : lightMatrix}
               result="brightened_source"
             />
           )}
 
-          {/* Core Pipeline */}
+          {/* Core refraction pipeline */}
           <feGaussianBlur
-            in={colorScheme ? "brightened_source" : magnifyingScale !== undefined ? "magnified_source" : "SourceGraphic"}
+            in={colorScheme ? 'brightened_source' : magnifyingScale !== undefined ? 'magnified_source' : 'SourceGraphic'}
             stdDeviation={blur}
             result="blurred_source"
           />
 
-          <feImage href={b} result="displacement_map" x="0" y="0" width={width} height={height} preserveAspectRatio="none" />
+          <feImage href={displacementURL} result="displacement_map" x="0" y="0" width={width} height={height} preserveAspectRatio="none" />
 
           <feDisplacementMap
             in="blurred_source"
             in2="displacement_map"
-            scale={C}
+            scale={displacementScale}
             xChannelSelector="R"
             yChannelSelector="G"
             result="displaced"
@@ -135,7 +147,8 @@ export const GlassFilter: React.FC<GlassFilterProps> = ({
             result="displaced_saturated"
           />
 
-          <feImage href={M} result="specular_layer" x="0" y="0" width={width} height={height} preserveAspectRatio="none" />
+          {/* Specular highlight overlay */}
+          <feImage href={specularURL} result="specular_layer" x="0" y="0" width={width} height={height} preserveAspectRatio="none" />
 
           <feComponentTransfer in="specular_layer" result="specular_faded">
             <feFuncA type="linear" slope={specularOpacity} />

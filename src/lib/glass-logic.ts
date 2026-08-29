@@ -1,7 +1,13 @@
 /**
- * Converts ImageData to a data URL
+ * Core physics-based refraction and specular rendering engine.
+ * All displacement maps are baked as RGBA ImageData where:
+ *   R = X offset, G = Y offset, 128 = neutral (zero displacement)
  */
-export const De = (imageData: ImageData): string => {
+
+// ─── Utilities ───────────────────────────────────────────────────────────────
+
+/** Convert an ImageData to a data URL for use in SVG feImage href. */
+export function imageDataToDataURL(imageData: ImageData): string {
   const canvas = document.createElement('canvas');
   canvas.width = imageData.width;
   canvas.height = imageData.height;
@@ -9,168 +15,287 @@ export const De = (imageData: ImageData): string => {
   if (!ctx) return '';
   ctx.putImageData(imageData, 0, 0);
   return canvas.toDataURL();
-};
-
-/**
- * Calculates the refraction offset curve
- * Exact logic from provided snippet
- */
-export function gu(t = 200, e = 50, n = (o: number) => o, s = 1.5, i = 128) {
-    const o = 1 / s;
-    function r(a: number, l: number): [number, number] | null {
-        const u = l;
-        const c = 1 - o * o * (1 - u * u);
-        if (c < 0) return null;
-        const h = Math.sqrt(c);
-        return [-(o * u + h) * a, o - (o * u + h) * l];
-    }
-    return Array.from({ length: i }, (a, l) => {
-        const u = l / i;
-        const c = n(u);
-        const h = u < 1 ? 1e-4 : -1e-4;
-        const d = (n(u + h) - c) / h;
-        const m = Math.sqrt(d * d + 1);
-        const y = [-d / m, -1 / m];
-        const v = r(y[0], y[1]);
-        if (v) {
-            const x = c * e + t;
-            return v[0] * (x / v[1]);
-        } else {
-            return 0;
-        }
-    });
 }
 
-/**
- * Bakes the displacement map into an RGBA ImageData
- * Exact logic from provided snippet
- */
-export function yu(t: number, e: number, n: number, s: number, i: number, o: number, r: number, a: number[] = [], l?: number) {
-    const u = l ?? (typeof window < "u" ? window.devicePixelRatio ?? 1 : 1);
-    const c = t * u;
-    const h = e * u;
-    const f = new ImageData(c, h);
-    
-    // CRITICAL FIX: Initialize with 128 (neutral displacement) instead of 0.
-    // In Little Endian Uint32: f.data[0]=0x80 (R), f.data[1]=0x80 (G), f.data[2]=0x00 (B), f.data[3]=0xFF (A)
-    new Uint32Array(f.data.buffer).fill(0xFF008080); 
+// ─── Bezel Profile ───────────────────────────────────────────────────────────
 
-    const m = i * u;
-    const y = o * u;
-    const v = m ** 2;
-    const g = (m + 1) ** 2;
-    const x = (m - y) ** 2;
-    const p = n * u;
-    const P = s * u;
-    const T = p - m * 2;
-    const A = P - m * 2;
-    const V = (c - p) / 2;
-    const b = (h - P) / 2;
-    for (let M = 0; M < P; M++) {
-        for (let C = 0; C < p; C++) {
-            const O = ((b + M) * c + V + C) * 4;
-            const q = C < m;
-            const qt = C >= p - m;
-            const et = M < m;
-            const gt = M >= P - m;
-            const yt = q ? C - m : qt ? C - m - T : 0;
-            const R = et ? M - m : gt ? M - m - A : 0;
-            const B = yt * yt + R * R;
-            if (B <= g && B >= x) {
-                const $ = B < v ? 1 : 1 - (Math.sqrt(B) - Math.sqrt(v)) / (Math.sqrt(g) - Math.sqrt(v));
-                const Z = Math.sqrt(B);
-                const de = m - Z;
-                const Rr = yt / Z;
-                const Er = R / Z;
-                const Lr = (de / y * a.length) | 0;
-                const Rn = a[Lr] ?? 0;
-                const Fr = -Rr * Rn / r;
-                const kr = -Er * Rn / r;
-                f.data[O] = 128 + Fr * 127 * $;
-                f.data[O + 1] = 128 + kr * 127 * $;
-                f.data[O + 2] = 0;
-                f.data[O + 3] = 255;
-            }
-        }
-    }
-    return f;
+/** Super-ellipse profile that produces a squircle-like bezel cross-section. */
+export function squircleProfile(t: number): number {
+  return Math.pow(1 - Math.pow(1 - t, 4), 1 / 4);
 }
 
-/**
- * Generates a magnifying displacement map
- * Exact logic from provided snippet
- */
-export function vu(t: number, e: number) {
-    const n = typeof window < "u" ? window.devicePixelRatio ?? 1 : 1;
-    const s = t * n;
-    const i = e * n;
-    const o = new ImageData(s, i);
-    const r = Math.max(s / 2, i / 2);
-    for (let a = 0; a < i; a++) {
-        for (let l = 0; l < s; l++) {
-            const u = (a * s + l) * 4;
-            const c = l - s / 2;
-            const h = a - i / 2;
-            const f = c / r;
-            const d = h / r;
-            o.data[u] = 128 - f * 127;
-            o.data[u + 1] = 128 - d * 127;
-            o.data[u + 2] = 0;
-            o.data[u + 3] = 255;
-        }
-    }
-    return o;
-}
+// ─── Refraction Curve (Snell's Law) ──────────────────────────────────────────
 
 /**
- * Generates a specular layer ImageData
- * Exact logic from provided snippet
+ * Compute per-sample refraction offsets along the bezel edge.
+ *
+ * For each of `sampleCount` evenly-spaced points along the bezel profile,
+ * this function:
+ *   1. Evaluates the profile curve to get the surface normal
+ *   2. Applies Snell's Law to find the refracted ray direction
+ *   3. Projects the refracted offset back to a scalar displacement
+ *
+ * @param glassThickness - Physical thickness of the glass medium (px)
+ * @param bezelWidth     - Width of the curved bezel region (px)
+ * @param bezelProfile   - f(t∈[0,1]) → height — the cross-section shape
+ * @param refractiveIndex - Index of refraction (e.g. 1.52 for glass)
+ * @param sampleCount    - Number of discrete samples along the edge
+ * @returns Array of scalar displacement magnitudes per sample
  */
-export function xu(t: number, e: number, n: number, s: number, i: number = Math.PI / 3, o?: number, hardness: number = 2) {
-    const r = o ?? (typeof window < "u" ? window.devicePixelRatio ?? 1 : 1);
-    const a = t * r;
-    const l = e * r;
-    const u = new ImageData(a, l);
-    const c = n * r;
-    const h = s * r;
-    const f = [Math.cos(i), Math.sin(i)];
-    new Uint32Array(u.data.buffer).fill(0);
-    const m = c ** 2;
-    const y = (c + r) ** 2;
-    const v = (c - h) ** 2;
-    const g = a - c * 2;
-    const x = l - c * 2;
-    for (let p = 0; p < l; p++) {
-        for (let P = 0; P < a; P++) {
-            const T = (p * a + P) * 4;
-            const A = P < c;
-            const V = P >= a - c;
-            const b = p < c;
-            const M = p >= l - c;
-            const C = A ? P - c : V ? P - c - g : 0;
-            const O = b ? p - c : M ? p - c - x : 0;
-            const q = C * C + O * O;
-            if (q <= y && q >= v) {
-                const et = Math.sqrt(q);
-                const gt = c - et;
-                const yt = q < m ? 1 : 1 - (et - Math.sqrt(m)) / (Math.sqrt(y) - Math.sqrt(m));
-                const R = C / et;
-                const B = -O / et;
-                const baseSpec = Math.abs(R * f[0] + B * f[1]);
-                const edgeSpec = Math.sqrt(1 - (1 - gt / (1 * r)) ** 2);
-                const $ = baseSpec * Math.pow(edgeSpec, hardness);
-                const Z = 255 * $;
-                const de = Z * $ * yt;
-                u.data[T] = Z;
-                u.data[T + 1] = Z;
-                u.data[T + 2] = Z;
-                u.data[T + 3] = de;
-            }
-        }
-    }
-    return u;
+export function computeRefractionCurve(
+  glassThickness: number = 200,
+  bezelWidth: number = 50,
+  bezelProfile: (t: number) => number = squircleProfile,
+  refractiveIndex: number = 1.5,
+  sampleCount: number = 128,
+): number[] {
+  const etaInverse = 1 / refractiveIndex;
+
+  /** Snell's Law: refract an incident normal through the medium. */
+  function refract(normalX: number, normalY: number): [number, number] | null {
+    const cosTheta = normalY;
+    const discriminant = 1 - etaInverse * etaInverse * (1 - cosTheta * cosTheta);
+    if (discriminant < 0) return null; // total internal reflection
+    const refractedY = Math.sqrt(discriminant);
+    return [
+      -(etaInverse * cosTheta + refractedY) * normalX,
+      etaInverse - (etaInverse * cosTheta + refractedY) * normalY,
+    ];
+  }
+
+  return Array.from({ length: sampleCount }, (_, i) => {
+    const t = i / sampleCount;
+    const height = bezelProfile(t);
+
+    // Numerical derivative for surface normal
+    const epsilon = t < 1 ? 1e-4 : -1e-4;
+    const dHeight = (bezelProfile(t + epsilon) - height) / epsilon;
+    const normalLen = Math.sqrt(dHeight * dHeight + 1);
+    const normalX = -dHeight / normalLen;
+    const normalY = -1 / normalLen;
+
+    const refracted = refract(normalX, normalY);
+    if (!refracted) return 0;
+
+    // Project refracted ray onto the displacement axis
+    const rayLength = height * bezelWidth + glassThickness;
+    return refracted[0] * (rayLength / refracted[1]);
+  });
 }
 
-export const Tu = {
-  fn: (t: number) => Math.pow(1 - Math.pow(1 - t, 4), 1 / 4)
-};
+// ─── Displacement Map (Refraction) ───────────────────────────────────────────
+
+/**
+ * Bake a refraction displacement map into an RGBA ImageData.
+ *
+ * Only pixels within the bezel region (between inner and outer corner radii)
+ * receive non-neutral values. The R channel encodes X displacement and the
+ * G channel encodes Y displacement, both centered at 128 (no shift).
+ *
+ * @param width           - Logical width of the component (px)
+ * @param height          - Logical height of the component (px)
+ * @param renderWidth     - Render width (typically same as width)
+ * @param renderHeight    - Render height (typically same as height)
+ * @param cornerRadius    - Border-radius of the glass shape (px)
+ * @param bezelWidth      - Width of the curved bezel (px)
+ * @param maxOffset       - Maximum displacement magnitude from computeRefractionCurve
+ * @param refractionCurve - Output of computeRefractionCurve()
+ * @param dpr             - Device pixel ratio
+ */
+export function bakeDisplacementMap(
+  width: number,
+  height: number,
+  renderWidth: number,
+  renderHeight: number,
+  cornerRadius: number,
+  bezelWidth: number,
+  maxOffset: number,
+  refractionCurve: number[] = [],
+  dpr?: number,
+): ImageData {
+  const pixelRatio = dpr ?? (typeof window < 'u' ? window.devicePixelRatio ?? 1 : 1);
+  const pixelWidth = width * pixelRatio;
+  const pixelHeight = height * pixelRatio;
+  const imageData = new ImageData(pixelWidth, pixelHeight);
+
+  // Neutral fill: R=128 G=128 B=0 A=255 (little-endian Uint32)
+  new Uint32Array(imageData.data.buffer).fill(0xFF008080);
+
+  const scaledRadius = cornerRadius * pixelRatio;
+  const scaledBezel = bezelWidth * pixelRatio;
+  const outerRadiusSq = (scaledRadius + 1) ** 2;
+  const innerRadiusSq = (scaledRadius - scaledBezel) ** 2;
+  const radiusSq = scaledRadius ** 2;
+  const scaledRenderW = renderWidth * pixelRatio;
+  const scaledRenderH = renderHeight * pixelRatio;
+  const contentWidth = scaledRenderW - scaledRadius * 2;
+  const contentHeight = scaledRenderH - scaledRadius * 2;
+  const offsetX = (pixelWidth - scaledRenderW) / 2;
+  const offsetY = (pixelHeight - scaledRenderH) / 2;
+
+  for (let row = 0; row < scaledRenderH; row++) {
+    for (let col = 0; col < scaledRenderW; col++) {
+      const idx = ((offsetY + row) * pixelWidth + offsetX + col) * 4;
+
+      // Signed distance from the nearest corner center
+      const isLeft = col < scaledRadius;
+      const isRight = col >= scaledRenderW - scaledRadius;
+      const isTop = row < scaledRadius;
+      const isBottom = row >= scaledRenderH - scaledRadius;
+
+      const dx = isLeft ? col - scaledRadius : isRight ? col - scaledRadius - contentWidth : 0;
+      const dy = isTop ? row - scaledRadius : isBottom ? row - scaledRadius - contentHeight : 0;
+      const distSq = dx * dx + dy * dy;
+
+      if (distSq <= outerRadiusSq && distSq >= innerRadiusSq) {
+        const dist = Math.sqrt(distSq);
+        const bezelDepth = scaledRadius - dist;
+
+        // Smooth falloff: 1 inside the corner arc, linearly to 0 at edges
+        const edgeFactor = distSq < radiusSq
+          ? 1
+          : 1 - (dist - Math.sqrt(radiusSq)) / (Math.sqrt(outerRadiusSq) - Math.sqrt(radiusSq));
+
+        // Look up refraction offset by normalized bezel depth
+        const curveIndex = ((bezelDepth / scaledBezel) * refractionCurve.length) | 0;
+        const offset = refractionCurve[curveIndex] ?? 0;
+
+        // Normalized direction from corner center
+        const normalX = dx / dist;
+        const normalY = dy / dist;
+
+        // Write displacement: 128 = neutral, ±127 range
+        imageData.data[idx]     = 128 + (-normalX * offset / maxOffset) * 127 * edgeFactor;
+        imageData.data[idx + 1] = 128 + (-normalY * offset / maxOffset) * 127 * edgeFactor;
+        imageData.data[idx + 2] = 0;
+        imageData.data[idx + 3] = 255;
+      }
+    }
+  }
+
+  return imageData;
+}
+
+// ─── Magnification Displacement Map ──────────────────────────────────────────
+
+/**
+ * Generate a radial displacement map that magnifies toward the center.
+ * Used for the optional "magnifying glass" effect overlay.
+ */
+export function bakeMagnificationMap(width: number, height: number): ImageData {
+  const pixelRatio = typeof window < 'u' ? window.devicePixelRatio ?? 1 : 1;
+  const pixelWidth = width * pixelRatio;
+  const pixelHeight = height * pixelRatio;
+  const imageData = new ImageData(pixelWidth, pixelHeight);
+  const maxRadius = Math.max(pixelWidth / 2, pixelHeight / 2);
+
+  for (let row = 0; row < pixelHeight; row++) {
+    for (let col = 0; col < pixelWidth; col++) {
+      const idx = (row * pixelWidth + col) * 4;
+      const dx = (col - pixelWidth / 2) / maxRadius;
+      const dy = (row - pixelHeight / 2) / maxRadius;
+
+      imageData.data[idx]     = 128 - dx * 127;
+      imageData.data[idx + 1] = 128 - dy * 127;
+      imageData.data[idx + 2] = 0;
+      imageData.data[idx + 3] = 255;
+    }
+  }
+
+  return imageData;
+}
+
+// ─── Specular Highlight Layer ────────────────────────────────────────────────
+
+/**
+ * Bake a specular (highlight) layer as a grayscale ImageData.
+ *
+ * The highlight simulates environment reflection on the glass bezel using:
+ *   1. A Lambert-like dot product between the surface normal and a fixed
+ *      light direction for the base specular intensity.
+ *   2. A half-circle falloff curve controlled by `hardness` to sharpen
+ *      or soften the highlight edge.
+ *
+ * Only pixels within the bezel ring receive non-zero values.
+ *
+ * @param width        - Logical width (px)
+ * @param height       - Logical height (px)
+ * @param cornerRadius - Border-radius (px)
+ * @param bezelWidth   - Bezel width (px)
+ * @param lightAngle   - Light direction angle in radians (default π/3 ≈ 60°)
+ * @param dpr          - Device pixel ratio
+ * @param hardness     - Exponent controlling highlight sharpness (higher = tighter)
+ */
+export function bakeSpecularLayer(
+  width: number,
+  height: number,
+  cornerRadius: number,
+  bezelWidth: number,
+  lightAngle: number = Math.PI / 3,
+  dpr?: number,
+  hardness: number = 2,
+): ImageData {
+  const pixelRatio = dpr ?? (typeof window < 'u' ? window.devicePixelRatio ?? 1 : 1);
+  const pixelWidth = width * pixelRatio;
+  const pixelHeight = height * pixelRatio;
+  const imageData = new ImageData(pixelWidth, pixelHeight);
+
+  const scaledRadius = cornerRadius * pixelRatio;
+  const scaledBezel = bezelWidth * pixelRatio;
+  const lightDir = [Math.cos(lightAngle), Math.sin(lightAngle)];
+
+  new Uint32Array(imageData.data.buffer).fill(0);
+
+  const radiusSq = scaledRadius ** 2;
+  const outerRadiusSq = (scaledRadius + pixelRatio) ** 2;
+  const innerRadiusSq = (scaledRadius - scaledBezel) ** 2;
+  const contentWidth = pixelWidth - scaledRadius * 2;
+  const contentHeight = pixelHeight - scaledRadius * 2;
+
+  for (let row = 0; row < pixelHeight; row++) {
+    for (let col = 0; col < pixelWidth; col++) {
+      const idx = (row * pixelWidth + col) * 4;
+
+      const isLeft = col < scaledRadius;
+      const isRight = col >= pixelWidth - scaledRadius;
+      const isTop = row < scaledRadius;
+      const isBottom = row >= pixelHeight - scaledRadius;
+
+      const dx = isLeft ? col - scaledRadius : isRight ? col - scaledRadius - contentWidth : 0;
+      const dy = isTop ? row - scaledRadius : isBottom ? row - scaledRadius - contentHeight : 0;
+      const distSq = dx * dx + dy * dy;
+
+      if (distSq <= outerRadiusSq && distSq >= innerRadiusSq) {
+        const dist = Math.sqrt(distSq);
+        const bezelDepth = scaledRadius - dist;
+
+        // Edge falloff: 1 at corner interior, linearly to 0 at outer edge
+        const edgeFactor = distSq < radiusSq
+          ? 1
+          : 1 - (dist - Math.sqrt(radiusSq)) / (Math.sqrt(outerRadiusSq) - Math.sqrt(radiusSq));
+
+        // Surface normal (pointing outward from corner center)
+        const normalX = dx / dist;
+        const normalY = -dy / dist;
+
+        // 1. Lambert specular: |N · L|
+        const lambert = Math.abs(normalX * lightDir[0] + normalY * lightDir[1]);
+
+        // 2. Half-circle edge sharpening
+        const edgeGlow = Math.sqrt(1 - (1 - bezelDepth / (1 * pixelRatio)) ** 2);
+
+        // 3. Combined intensity with hardness exponent
+        const intensity = lambert * Math.pow(edgeGlow, hardness);
+
+        // Write grayscale with alpha falloff
+        const brightness = 255 * intensity;
+        imageData.data[idx]     = brightness;
+        imageData.data[idx + 1] = brightness;
+        imageData.data[idx + 2] = brightness;
+        imageData.data[idx + 3] = brightness * intensity * edgeFactor;
+      }
+    }
+  }
+
+  return imageData;
+}

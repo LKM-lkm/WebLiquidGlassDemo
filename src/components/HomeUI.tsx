@@ -1,13 +1,14 @@
 import React from 'react';
 import { motion } from 'motion/react';
 import { ChevronRight } from 'lucide-react';
-import { GlassComponent } from '../App';
+import { GlassComponent } from './SharedUI';
+import type { GlassParams } from './SharedUI';
 
 interface HomeUIProps {
   onStart?: () => void;
   onOpenDocs?: () => void;
   sceneUrl?: string;
-  globalParams?: any;
+  globalParams?: GlassParams;
 }
 
 export function HomeUI({ onStart, onOpenDocs, sceneUrl, globalParams }: HomeUIProps) {
