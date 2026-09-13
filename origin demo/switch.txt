@@ -1,0 +1,255 @@
+import {u as i, a as s, b as u, c as H, j as t, m as d, F as P} from "./Filter.C00nMqXv.js";
+import {R as L, r as B} from "./index.DtoOFyvK.js";
+const D = () => {
+    const w = L.useRef(null)
+      , h = i(.2)
+      , g = i(.5)
+      , m = i(6)
+      , b = i(1)
+      , p = i(0)
+      , f = .65
+      , R = .9
+      , v = 93 - 54 * f
+      , o = i(1)
+      , r = i(0)
+      , j = i(!1)
+      , y = s( () => j.get() || r.get() > .5 ? 1 : 0);
+    B.useEffect( () => {
+        const e = a => {
+            r.set(0);
+            const c = (a instanceof MouseEvent ? a.clientX : a.changedTouches[0].clientX) - l.get();
+            if (Math.abs(c) > 4) {
+                const x = p.get() > .5;
+                o.set(x ? 1 : 0)
+            }
+        }
+        ;
+        return window.addEventListener("mouseup", e),
+        window.addEventListener("touchend", e),
+        () => {
+            window.removeEventListener("mouseup", e),
+            window.removeEventListener("touchend", e)
+        }
+    }
+    , [r, o]);
+    const E = u(s( () => {
+        const e = o.get()
+          , a = p.get();
+        return r.get() > .5 ? a : e ? 1 : 0
+    }
+    ), {
+        damping: 80,
+        stiffness: 1e3
+    })
+      , T = u(s(y, e => 1 - .9 * e), {
+        damping: 80,
+        stiffness: 2e3
+    })
+      , X = u(s(y, e => f + (R - f) * e), {
+        damping: 80,
+        stiffness: 2e3
+    })
+      , M = u(s( () => (.4 + .5 * y.get()) * b.get()))
+      , S = s( () => {
+        const e = p.get()
+          , a = o.get();
+        return r.get() ? e > .5 ? 1 : 0 : a > .5 ? 1 : 0
+    }
+    )
+      , C = s(u(S, {
+        damping: 80,
+        stiffness: 1e3
+    }), H("#94949F77", "#3BBF4EEE"))
+      , l = i(0);
+    return t.jsxs(t.Fragment, {
+        children: [t.jsxs("div", {
+            className: "relative h-96 flex justify-center items-center rounded-xl -ml-[15px] w-[calc(100%+30px)] select-none text-black/5 dark:text-white/5 [--bg1:#f8fafc] [--bg2:#e7eeef] dark:[--bg1:#1b1b22] dark:[--bg2:#0f0f14] border border-black/10 dark:border-white/10 touch-pan-y touch-none contain-layout contain-style contain-paint [content-visibility:auto]",
+            style: {
+                backgroundImage: "linear-gradient(to right, currentColor 1px, transparent 1px),linear-gradient(to bottom, currentColor 1px, transparent 1px),radial-gradient(120% 100% at 10% 0%, var(--bg1), var(--bg2))",
+                backgroundSize: "24px 24px, 24px 24px, 100% 100%",
+                backgroundPosition: "12px 12px, 12px 12px, 0 0"
+            },
+            onMouseMove: e => {
+                if (!w.current)
+                    return;
+                e.stopPropagation();
+                const a = o.get()
+                  , c = e.clientX - l.get()
+                  , n = a + c / v
+                  , x = n < 0 ? -n : n > 1 ? n - 1 : 0
+                  , N = (n < 0 ? -1 : 1) * x / 22;
+                p.set(Math.min(1, Math.max(0, n)) + N)
+            }
+            ,
+            onTouchMove: e => {
+                if (!w.current)
+                    return;
+                e.stopPropagation();
+                const a = o.get()
+                  , c = e.touches[0].clientX - l.get()
+                  , n = a + c / v
+                  , x = n < 0 ? -n : n > 1 ? n - 1 : 0
+                  , N = (n < 0 ? -1 : 1) * x / 22;
+                p.set(Math.min(1, Math.max(0, n)) + N)
+            }
+            ,
+            children: [t.jsxs(d.div, {
+                ref: w,
+                style: {
+                    display: "inline-block",
+                    width: 160,
+                    height: 67,
+                    backgroundColor: C,
+                    borderRadius: 67 / 2,
+                    position: "relative",
+                    cursor: "pointer"
+                },
+                onClick: e => {
+                    const a = e.clientX
+                      , k = l.get()
+                      , c = a - k;
+                    if (Math.abs(c) < 4) {
+                        const n = o.get() < .5;
+                        o.set(n ? 1 : 0)
+                    }
+                }
+                ,
+                children: [typeof window < "u" && t.jsx(P, {
+                    id: "thumb-filter",
+                    blur: h,
+                    scaleRatio: M,
+                    specularOpacity: g,
+                    specularSaturation: m,
+                    width: 146,
+                    height: 92,
+                    radius: 46,
+                    bezelWidth: 19,
+                    glassThickness: 47,
+                    bezelType: "lip",
+                    refractiveIndex: 1.5
+                }), t.jsx(d.div, {
+                    className: "absolute",
+                    onTouchStart: e => {
+                        e.stopPropagation();
+                        const a = e.touches[0].clientX;
+                        r.set(1),
+                        l.set(a)
+                    }
+                    ,
+                    onMouseDown: e => {
+                        e.stopPropagation(),
+                        r.set(1),
+                        l.set(e.clientX)
+                    }
+                    ,
+                    style: {
+                        height: 92,
+                        width: 146,
+                        marginLeft: -25.549999999999997 + (67 - 92 * f) / 2,
+                        x: s( () => E.get() * v),
+                        y: "-50%",
+                        borderRadius: 46,
+                        top: 67 / 2,
+                        backdropFilter: "url(#thumb-filter)",
+                        scale: X,
+                        backgroundColor: s(T, e => `rgba(255, 255, 255, ${e})`),
+                        boxShadow: s( () => "0 4px 22px rgba(0,0,0,0.1)" + (r.get() > .5 ? ", inset 2px 7px 24px rgba(0,0,0,0.09), inset -2px -7px 24px rgba(255,255,255,0.09)" : ""))
+                    }
+                })]
+            }), t.jsxs("label", {
+                className: "absolute bottom-2 left-1/2 -translate-x-1/2 text-xs bg-white/10 dark:bg-black/10 backdrop-blur px-2 py-1 rounded-md flex items-center gap-2 text-black/80 dark:text-white/80",
+                children: [t.jsx("input", {
+                    type: "checkbox",
+                    defaultChecked: j.get(),
+                    onChange: e => j.set(e.currentTarget.checked),
+                    className: "accent-blue-600"
+                }), "聚焦"]
+            })]
+        }), t.jsxs("div", {
+            className: "mt-8 space-y-3 text-black/80 dark:text-white/80",
+            children: [t.jsxs("div", {
+                className: "flex items-center gap-4",
+                children: [t.jsx("div", {
+                    className: "uppercase tracking-[0.14em] text-[10px] opacity-70 select-none",
+                    children: "参数"
+                }), t.jsx("div", {
+                    className: "h-[1px] flex-1 bg-black/10 dark:bg-white/10"
+                })]
+            }), t.jsxs("div", {
+                className: "flex items-center gap-4",
+                children: [t.jsx("label", {
+                    className: "w-56 uppercase tracking-[0.08em] text-[11px] opacity-80 select-none [line-height:1.2]",
+                    children: "镜面反射透明度"
+                }), t.jsx(d.span, {
+                    className: "w-14 text-right font-mono tabular-nums text-[11px] text-black/60 dark:text-white/60",
+                    children: s(g, e => e.toFixed(2))
+                }), t.jsx("input", {
+                    type: "range",
+                    min: 0,
+                    max: 1,
+                    step: .01,
+                    defaultValue: g.get(),
+                    onInput: e => g.set(parseFloat(e.currentTarget.value)),
+                    className: "flex-1 appearance-none h-[2px] bg-black/20 dark:bg-white/20 rounded outline-none",
+                    "aria-label": "镜面反射透明度"
+                })]
+            }), t.jsxs("div", {
+                className: "flex items-center gap-4",
+                children: [t.jsx("label", {
+                    className: "w-56 uppercase tracking-[0.08em] text-[11px] opacity-80 select-none [line-height:1.2]",
+                    children: "镜面饱和度"
+                }), t.jsx(d.span, {
+                    className: "w-14 text-right font-mono tabular-nums text-[11px] text-black/60 dark:text-white/60",
+                    children: s(m, e => Math.round(e).toString())
+                }), t.jsx("input", {
+                    type: "range",
+                    min: 0,
+                    max: 50,
+                    step: 1,
+                    defaultValue: m.get(),
+                    onInput: e => m.set(parseFloat(e.currentTarget.value)),
+                    className: "flex-1 appearance-none h-[2px] bg-black/20 dark:bg-white/20 rounded outline-none",
+                    "aria-label": "镜面饱和度"
+                })]
+            }), t.jsxs("div", {
+                className: "flex items-center gap-4",
+                children: [t.jsx("label", {
+                    className: "w-56 uppercase tracking-[0.08em] text-[11px] opacity-80 select-none [line-height:1.2]",
+                    children: "折射等级"
+                }), t.jsx(d.span, {
+                    className: "w-14 text-right font-mono tabular-nums text-[11px] text-black/60 dark:text-white/60",
+                    children: s(b, e => e.toFixed(2))
+                }), t.jsx("input", {
+                    type: "range",
+                    min: 0,
+                    max: 1,
+                    step: .01,
+                    defaultValue: b.get(),
+                    onInput: e => b.set(parseFloat(e.currentTarget.value)),
+                    className: "flex-1 appearance-none h-[2px] bg-black/20 dark:bg-white/20 rounded outline-none",
+                    "aria-label": "折射等级"
+                })]
+            }), t.jsxs("div", {
+                className: "flex items-center gap-4",
+                children: [t.jsx("label", {
+                    className: "w-56 uppercase tracking-[0.08em] text-[11px] opacity-80 select-none [line-height:1.2]",
+                    children: "模糊等级"
+                }), t.jsx(d.span, {
+                    className: "w-14 text-right font-mono tabular-nums text-[11px] text-black/60 dark:text-white/60",
+                    children: s(h, e => e.toFixed(1))
+                }), t.jsx("input", {
+                    type: "range",
+                    min: 0,
+                    max: 40,
+                    step: .1,
+                    defaultValue: h.get(),
+                    onInput: e => h.set(parseFloat(e.currentTarget.value)),
+                    className: "flex-1 appearance-none h-[2px] bg-black/20 dark:bg-white/20 rounded outline-none",
+                    "aria-label": "模糊等级"
+                })]
+            })]
+        })]
+    })
+}
+;
+export {D as Switch};

@@ -147,15 +147,20 @@ export const GlassFilter: React.FC<GlassFilterProps> = ({
             result="displaced_saturated"
           />
 
-          {/* Specular highlight overlay */}
+          {/* Specular highlight overlay — matching original compiled pipeline */}
           <feImage href={specularURL} result="specular_layer" x="0" y="0" width={width} height={height} preserveAspectRatio="none" />
 
+          {/* Saturate specular colors using refracted backdrop */}
+          <feComposite in="displaced_saturated" in2="specular_layer" operator="in" result="specular_saturated" />
+
+          {/* Fade specular intensity */}
           <feComponentTransfer in="specular_layer" result="specular_faded">
             <feFuncA type="linear" slope={specularOpacity} />
           </feComponentTransfer>
 
-          <feBlend in="specular_faded" in2="displaced_saturated" mode="screen" result="final_output" />
-          <feComposite in="final_output" in2="SourceAlpha" operator="in" />
+          {/* Two-pass blend: saturated specular + faded specular over refracted */}
+          <feBlend in="specular_saturated" in2="displaced" mode="normal" result="with_saturation" />
+          <feBlend in="specular_faded" in2="with_saturation" mode="normal" />
         </filter>
       </defs>
     </svg>

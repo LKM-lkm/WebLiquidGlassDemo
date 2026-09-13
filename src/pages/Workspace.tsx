@@ -3,9 +3,9 @@ import { motion, AnimatePresence } from 'motion/react';
 import { useNavigate } from 'react-router-dom';
 import {
   Search, Settings2, Droplets, ChevronRight, ChevronLeft,
-  Wifi, Battery, Signal, Sparkles, Play, LayoutGrid,
+  Wifi, Battery, Signal, Sparkles, Play,
   ListMusic, Airplay, Volume2, MoreHorizontal, RefreshCw,
-  Maximize2, Moon, Clock,
+  Maximize2, Clock, Sliders, ToggleLeft,
 } from 'lucide-react';
 import { GlassComponent, ControlSlider } from '../components/SharedUI';
 import { ControlCenter } from '../components/ControlCenter';
@@ -16,31 +16,31 @@ import {
 
 const UI_SCENARIOS = [
   { id: 'player', name: '音乐播放', icon: <Play className="w-3.5 h-3.5" /> },
-  { id: 'control', name: '控制中心', icon: <LayoutGrid className="w-3.5 h-3.5" /> },
-  { id: 'search', name: '全局搜索', icon: <Search className="w-3.5 h-3.5" /> },
-  { id: 'notification', name: '通知堆栈', icon: <Bell className="w-3.5 h-3.5" /> },
+  { id: 'search', name: '搜索框', icon: <Search className="w-3.5 h-3.5" /> },
+  { id: 'slider', name: '滑块', icon: <Sliders className="w-3.5 h-3.5" /> },
+  { id: 'switch', name: '开关', icon: <ToggleLeft className="w-3.5 h-3.5" /> },
   { id: 'playground', name: '实验室', icon: <Sparkles className="w-3.5 h-3.5" /> },
 ];
-
-function Bell({ className }: { className?: string }) {
-  return (
-    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"
-      fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"
-      strokeLinejoin="round" className={className}>
-      <path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9" />
-      <path d="M10.3 21a1.94 1.94 0 0 0 3.4 0" />
-    </svg>
-  );
-}
 
 export function Workspace() {
   const navigate = useNavigate();
   const [activeScene, setActiveScene] = useState(0);
   const [activeUI, setActiveUI] = useState('player');
   const [params, setParams] = useState({
-    ...DEFAULT_GLASS_PARAMS,
+    // Use old alias keys — these match what the UI sliders read/write
+    radius: DEFAULT_GLASS_PARAMS.radius,
+    blur: DEFAULT_GLASS_PARAMS.blur,
+    refractiveIndex: DEFAULT_GLASS_PARAMS.ior,
+    refractionSaturation: DEFAULT_GLASS_PARAMS.backdropSaturation,
+    glassThickness: DEFAULT_GLASS_PARAMS.thickness,
+    bezelWidth: DEFAULT_GLASS_PARAMS.edgeWidth,
+    specularOpacity: DEFAULT_GLASS_PARAMS.specularOpacity,
+    specularHardness: DEFAULT_GLASS_PARAMS.specularHardness,
+    displacementScale: DEFAULT_GLASS_PARAMS.displacementScale,
     tintColor: '#000000',
     tintOpacity: 0,
+    specularAngle: Math.PI / 3,
+    dynamicSpecular: true,
     pgWidth: 300,
     pgHeight: 200,
     pgCircleSize: 200,
@@ -260,6 +260,74 @@ export function Workspace() {
 
               {activeUI === 'control' && <ControlCenter sceneUrl={sceneUrl} params={params} />}
 
+              {activeUI === 'slider' && (
+                <motion.div key="slider-ui" initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.9, opacity: 0 }} className="w-full flex flex-col items-center gap-6">
+                  {/* Glass slider — from original slider.txt */}
+                  <GlassComponent
+                    id="slider-demo"
+                    width={330}
+                    height={60}
+                    sceneUrl={sceneUrl}
+                    params={{ ...params, radius: 30, bezelWidth: 16, glassThickness: 80, refractiveIndex: 1.45 }}
+                  >
+                    <div className="w-full h-full flex items-center px-4 gap-4">
+                      <div className="flex-1 h-[14px] bg-white/10 rounded-full overflow-hidden relative cursor-pointer">
+                        <div className="absolute inset-y-0 left-0 bg-blue-500/80 rounded-full" style={{ width: '45%' }} />
+                      </div>
+                      <div className="text-[11px] font-mono text-white/50 tabular-nums w-8 text-right">45%</div>
+                    </div>
+                  </GlassComponent>
+                  <p className="text-[11px] text-white/20">拖拽玻璃滑块查看折射效果 · 原始 Slider Demo</p>
+
+                  {/* Second slider variant */}
+                  <GlassComponent
+                    id="slider-demo-2"
+                    width={330}
+                    height={60}
+                    sceneUrl={sceneUrl}
+                    params={{ ...params, radius: 30, bezelWidth: 20, glassThickness: 100, refractiveIndex: 1.5 }}
+                  >
+                    <div className="w-full h-full flex items-center px-4 gap-4">
+                      <div className="flex-1 h-[14px] bg-white/10 rounded-full overflow-hidden relative cursor-pointer">
+                        <div className="absolute inset-y-0 left-0 bg-purple-500/80 rounded-full" style={{ width: '72%' }} />
+                      </div>
+                      <div className="text-[11px] font-mono text-white/50 tabular-nums w-8 text-right">72%</div>
+                    </div>
+                  </GlassComponent>
+                </motion.div>
+              )}
+
+              {activeUI === 'switch' && (
+                <motion.div key="switch-ui" initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.9, opacity: 0 }} className="w-full flex flex-col items-center gap-8">
+                  {/* Glass switch — from original switch.txt */}
+                  <GlassComponent
+                    id="switch-demo"
+                    width={160}
+                    height={67}
+                    sceneUrl={sceneUrl}
+                    params={{ ...params, radius: 34, bezelWidth: 19, glassThickness: 47, refractiveIndex: 1.5 }}
+                  >
+                    <div className="w-full h-full flex items-center px-2">
+                      <div className="w-[54px] h-[54px] rounded-full bg-white/20 shadow-lg cursor-pointer transition-all" />
+                    </div>
+                  </GlassComponent>
+                  <p className="text-[11px] text-white/20">拖拽玻璃开关 · 原始 Switch Demo</p>
+
+                  {/* Second switch variant — toggled on */}
+                  <GlassComponent
+                    id="switch-demo-on"
+                    width={160}
+                    height={67}
+                    sceneUrl={sceneUrl}
+                    params={{ ...params, radius: 34, bezelWidth: 19, glassThickness: 47, refractiveIndex: 1.5 }}
+                  >
+                    <div className="w-full h-full flex items-center justify-end px-2">
+                      <div className="w-[54px] h-[54px] rounded-full bg-emerald-500/60 shadow-lg cursor-pointer transition-all" />
+                    </div>
+                  </GlassComponent>
+                </motion.div>
+              )}
+
               {activeUI === 'playground' && (
                 <motion.div key="playground-ui" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="relative w-full h-[600px] flex items-center justify-center pointer-events-none">
                   <div className="absolute inset-0 flex items-center justify-center gap-12 overflow-visible">
@@ -291,25 +359,6 @@ export function Workspace() {
                   </GlassComponent>
                 </motion.div>
               )}
-
-              {activeUI === 'notification' && (
-                <motion.div key="notification-ui" initial={{ x: 60, opacity: 0 }} animate={{ x: 0, opacity: 1 }} exit={{ x: 60, opacity: 0 }}>
-                  <GlassComponent id="notif-glass" width={340} height={140} sceneUrl={sceneUrl} params={{ ...params, radius: 28 }}>
-                    <div className="p-6 h-full flex flex-col justify-between">
-                      <div className="flex justify-between items-start">
-                        <div className="flex items-center gap-2.5">
-                          <div className="w-7 h-7 rounded-lg bg-blue-500 flex items-center justify-center shadow-lg"><Clock className="w-4 h-4" /></div>
-                          <span className="text-[11px] font-bold text-white/50 uppercase tracking-widest">待办事项</span>
-                        </div>
-                      </div>
-                      <div>
-                        <div className="text-lg font-bold tracking-tight">产品设计评审</div>
-                        <div className="text-[13px] text-white/50 font-medium mt-0.5">Liquid Glass Engine v1.2</div>
-                      </div>
-                    </div>
-                  </GlassComponent>
-                </motion.div>
-              )}
             </AnimatePresence>
           </div>
         </div>
@@ -318,48 +367,104 @@ export function Workspace() {
       {/* Controls panel */}
       <AnimatePresence>
         {isControlsOpen && (
-          <motion.div initial={{ x: 360 }} animate={{ x: 0 }} exit={{ x: 360 }} className="absolute right-6 top-1/2 -translate-y-1/2 z-[200]">
-            <div className="w-[310px] bg-[#0a0a0b]/85 backdrop-blur-3xl rounded-[20px] border border-white/10 shadow-[0_32px_64px_-12px_rgba(0,0,0,0.8)] max-h-[85vh] overflow-y-auto custom-scrollbar relative">
-              <div className="sticky top-0 z-20 px-7 pt-5 pb-8 mb-[-24px] bg-gradient-to-b from-[#0a0a0b] to-transparent pointer-events-none">
-                <div className="flex items-center justify-between w-full pointer-events-auto">
-                  <span className="text-[11px] font-black uppercase tracking-[0.4em] text-white/50">参数控制中心</span>
-                  <button onClick={() => setIsControlsOpen(false)} className="w-8 h-8 flex items-center justify-center rounded-full bg-white/5 hover:bg-white/10 transition-all border border-white/5">
-                    <ChevronRight className="w-4 h-4 text-white/40" />
+          <motion.div initial={{ x: 360, opacity: 0 }} animate={{ x: 0, opacity: 1 }} exit={{ x: 360, opacity: 0 }} transition={{ type: 'spring', stiffness: 300, damping: 30 }} className="absolute right-6 top-1/2 -translate-y-1/2 z-[200]">
+            <div className="w-[320px] bg-[#0c0c0e]/90 backdrop-blur-xl rounded-[16px] border border-white/[0.08] shadow-[0_32px_64px_-12px_rgba(0,0,0,0.7)] max-h-[85vh] overflow-y-auto custom-scrollbar">
+              {/* Header */}
+              <div className="sticky top-0 z-20 flex items-center justify-between px-6 pt-5 pb-4 bg-gradient-to-b from-[#0c0c0e] via-[#0c0c0e] to-transparent">
+                <div className="flex items-center gap-2">
+                  <div className="w-1.5 h-1.5 rounded-full bg-white/30" />
+                  <span className="text-[11px] font-bold uppercase tracking-[0.2em] text-white/40">Parameters</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => setParams({
+                      radius: DEFAULT_GLASS_PARAMS.radius,
+                      blur: DEFAULT_GLASS_PARAMS.blur,
+                      refractiveIndex: DEFAULT_GLASS_PARAMS.ior,
+                      refractionSaturation: DEFAULT_GLASS_PARAMS.backdropSaturation,
+                      glassThickness: DEFAULT_GLASS_PARAMS.thickness,
+                      bezelWidth: DEFAULT_GLASS_PARAMS.edgeWidth,
+                      specularOpacity: DEFAULT_GLASS_PARAMS.specularOpacity,
+                      specularHardness: DEFAULT_GLASS_PARAMS.specularHardness,
+                      displacementScale: DEFAULT_GLASS_PARAMS.displacementScale,
+                      tintColor: '#000000',
+                      tintOpacity: 0,
+                      specularAngle: Math.PI / 3,
+                      dynamicSpecular: false,
+                      pgWidth: 300,
+                      pgHeight: 200,
+                      pgCircleSize: 200,
+                    })}
+                    className="text-[10px] text-white/25 hover:text-white/50 transition-colors px-2 py-1 rounded-md hover:bg-white/5"
+                  >
+                    Reset
+                  </button>
+                  <button onClick={() => setIsControlsOpen(false)} className="w-7 h-7 flex items-center justify-center rounded-full hover:bg-white/5 transition-all">
+                    <ChevronRight className="w-3.5 h-3.5 text-white/30" />
                   </button>
                 </div>
               </div>
-              <div className="px-7 pt-4 pb-12 space-y-8 relative z-10">
-                <div className="space-y-5">
-                  <div className="flex items-center gap-2 px-1">
-                    <Droplets className="w-3.5 h-3.5 text-blue-400" />
-                    <span className="text-[10px] font-black uppercase tracking-[0.2em] text-white/30">光学特性 (Optics)</span>
+
+              <div className="px-6 pb-8 space-y-7">
+                {/* 光学 */}
+                <div className="space-y-4">
+                  <div className="flex items-center gap-2 px-1 pb-1 border-b border-white/[0.04]">
+                    <Droplets className="w-3 h-3 text-white/20" />
+                    <span className="text-[10px] font-bold uppercase tracking-[0.15em] text-white/25">光学 Optics</span>
                   </div>
-                  <ControlSlider label="折射率" value={params.refractiveIndex} min={1} max={3} step={0.01} onChange={(v) => handleParamChange('refractiveIndex', v)} />
+                  <ControlSlider label="折射率 (IOR)" value={params.refractiveIndex} min={1} max={3} step={0.01} onChange={(v) => handleParamChange('refractiveIndex', v)} />
                   <ControlSlider label="折射饱和度" value={params.refractionSaturation} min={0} max={3} step={0.1} onChange={(v) => handleParamChange('refractionSaturation', v)} />
                   <ControlSlider label="模糊等级" value={params.blur} min={0} max={20} step={0.5} onChange={(v) => handleParamChange('blur', v)} />
                 </div>
-                <div className="space-y-5">
-                  <div className="flex items-center gap-2 px-1">
-                    <Maximize2 className="w-3.5 h-3.5 text-purple-400" />
-                    <span className="text-[10px] font-black uppercase tracking-[0.2em] text-white/30">几何形态 (Geometry)</span>
+
+                {/* 几何 */}
+                <div className="space-y-4">
+                  <div className="flex items-center gap-2 px-1 pb-1 border-b border-white/[0.04]">
+                    <Maximize2 className="w-3 h-3 text-white/20" />
+                    <span className="text-[10px] font-bold uppercase tracking-[0.15em] text-white/25">几何 Geometry</span>
                   </div>
-                  <ControlSlider label="厚度" value={params.glassThickness} min={0} max={150} onChange={(v) => handleParamChange('glassThickness', v)} />
+                  <ControlSlider label="玻璃厚度" value={params.glassThickness} min={0} max={150} onChange={(v) => handleParamChange('glassThickness', v)} />
                   <ControlSlider label="边缘倒角" value={params.bezelWidth} min={0} max={40} onChange={(v) => handleParamChange('bezelWidth', v)} />
                   <ControlSlider label="物理圆角" value={params.radius} min={0} max={100} onChange={(v) => handleParamChange('radius', v)} />
                 </div>
-                <div className="space-y-5">
-                  <div className="flex items-center gap-2 px-1">
-                    <Sparkles className="w-3.5 h-3.5 text-yellow-400" />
-                    <span className="text-[10px] font-black uppercase tracking-[0.2em] text-white/30">视觉美学 (Aesthetics)</span>
+
+                {/* 美学 */}
+                <div className="space-y-4">
+                  <div className="flex items-center gap-2 px-1 pb-1 border-b border-white/[0.04]">
+                    <Sparkles className="w-3 h-3 text-white/20" />
+                    <span className="text-[10px] font-bold uppercase tracking-[0.15em] text-white/25">美学 Aesthetics</span>
                   </div>
-                  <ControlSlider label="高光透明度" value={params.specularOpacity} min={0} max={1} step={0.05} onChange={(v) => handleParamChange('specularOpacity', v)} />
-                  <ControlSlider label="高光硬度" value={params.specularHardness} min={1} max={10} step={1} onChange={(v) => handleParamChange('specularHardness', v)} />
-                  <div className="space-y-4 pt-2">
+                  <ControlSlider label="镜面反射透明度" value={params.specularOpacity} min={0} max={1} step={0.05} onChange={(v) => handleParamChange('specularOpacity', v)} />
+                  <ControlSlider label="镜面饱和度" value={params.specularHardness} min={1} max={10} step={1} onChange={(v) => handleParamChange('specularHardness', v)} />
+
+                  {/* 动态高光 */}
+                  <div className="space-y-3 pt-1">
                     <div className="flex justify-between items-center px-1">
-                      <span className="text-[12px] font-extrabold text-white/30 uppercase tracking-[0.1em]">蒙层色彩</span>
-                      <input type="color" value={params.tintColor} onChange={(e) => handleParamChange('tintColor', e.target.value)} className="w-8 h-8 rounded-lg bg-transparent border-none cursor-pointer overflow-hidden" />
+                      <span className="text-[11px] font-medium text-white/30">动态高光跟随</span>
+                      <button
+                        onClick={() => handleParamChange('dynamicSpecular', params.dynamicSpecular ? 0 : 1)}
+                        className={`w-9 h-[18px] rounded-full transition-all relative ${params.dynamicSpecular ? 'bg-white/20' : 'bg-white/[0.06]'}`}
+                      >
+                        <div className={`absolute top-[2px] w-[14px] h-[14px] rounded-full bg-white/80 shadow transition-transform ${params.dynamicSpecular ? 'translate-x-[18px]' : 'translate-x-[2px]'}`} />
+                      </button>
                     </div>
-                    <ControlSlider label="蒙层透明度" value={params.tintOpacity} min={0} max={1} step={0.01} onChange={(v) => handleParamChange('tintOpacity', v)} />
+                    <div className={params.dynamicSpecular ? 'opacity-30 pointer-events-none' : ''}>
+                      <ControlSlider
+                        label="高光角度"
+                        value={Math.round((params.specularAngle / Math.PI) * 180)}
+                        min={0} max={360} step={1}
+                        onChange={(v) => handleParamChange('specularAngle', (v / 180) * Math.PI)}
+                      />
+                    </div>
+                  </div>
+
+                  {/* 蒙层 */}
+                  <div className="pt-2 space-y-3">
+                    <div className="flex justify-between items-center px-1">
+                      <span className="text-[11px] font-medium text-white/30">蒙层色彩</span>
+                      <input type="color" value={params.tintColor} onChange={(e) => handleParamChange('tintColor', e.target.value)} className="w-7 h-7 rounded-md bg-transparent border border-white/[0.08] cursor-pointer" />
+                    </div>
+                    <ControlSlider label="Tint Opacity" value={params.tintOpacity} min={0} max={1} step={0.01} onChange={(v) => handleParamChange('tintOpacity', v)} />
                   </div>
                 </div>
               </div>

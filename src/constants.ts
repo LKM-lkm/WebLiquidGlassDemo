@@ -6,13 +6,13 @@ export const SCENES = [
 ] as const;
 
 export const DEFAULT_GLASS_PARAMS = {
-  glassThickness: 60,
-  bezelWidth: 25,
-  refractiveIndex: 1.52,
+  thickness: 60,
+  edgeWidth: 25,
+  ior: 1.52,
   blur: 4,
   specularOpacity: 0.4,
   specularHardness: 2,
-  refractionSaturation: 1.2,
-  scaleRatio: 1,
+  backdropSaturation: 1.2,
+  displacementScale: 1,
   radius: 32,
 } as const;
