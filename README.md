@@ -1,100 +1,207 @@
-# Liquid Glass Refraction Engine
+# Liquid Glass Refraction Engine v2.0
 
 <div align="center">
-  <p>基于硬件加速管线的下一代 Web 液态玻璃渲染系统</p>
-  <p>利用物理光学原理与 SVG 滤镜管线，实现工业级的折射视差、边缘倒角与物理高光感，专为高级 Spatial UI 设计语言打造。</p>
+  <p>Multi-algorithm Web liquid glass rendering system</p>
+  <p>Five glass refraction algorithms — SVG physics, SVG gradient, and WebGL GPU — switchable in real-time.</p>
 </div>
 
 ---
 
-## 核心技术特性 (Technical Features)
+## Algorithms
 
-- **物理真实的折射视差 (Physically Based Refraction)**
-  拒绝传统的 `backdrop-filter: blur` 简单叠加。本引擎通过动态生成精密法线贴图 (Normal Map) 并驱动 SVG `feDisplacementMap` 原语，从底层模拟光线穿透厚介质时的偏振与位移。
-  
-- **极致的硬件加速性能 (Hardware Accelerated)**
-  完全基于浏览器原生 SVG 滤镜流水线，摒弃了沉重的 WebGL/Three.js 依赖。在保持极低 CPU 加载的同时，提供流畅的 60FPS+ 渲染表现，适用于各种复杂的 DOM 环境。
+| Algorithm | Type | Technique | Key Feature |
+|-----------|------|-----------|-------------|
+| **LiuNian (刘念)** | SVG | Snell's Law + squircle bezel profile | Physical refraction, specular highlights |
+| **Deepika** | SVG | Gradient ramp displacement + 3-pass chromatic aberration | Prism fringe effect, fast generation |
+| **Kyant** | WebGL2 | circleMap() + SDF gradient + Gaussian blur | GPU-native, 7-channel dispersion |
 
-- **像素级坐标对齐 (Pixel-Perfect Alignment)**
-  攻克了 SVG 滤镜在 DOM 容器动态位移或缩放时的“采样重影”与“颜色空间偏移”难题。无论组件如何形变，物理高光流线及底层折射层始终保持绝对的视觉对齐。
-
-- **多维光学参数控制 (Optical Parameters)**
-  提供丰富的物理参数接口，支持实时精细化调节：
-  - **折射率 (IOR)**：模拟不同介质的光学密度。
-  - **玻璃厚度 (Thickness)**：控制光线偏移的物理距离。
-  - **高光硬度 (Specular Hardness)**：调节倒角反射的锐利度。
-  - **折射饱和度 (Saturation)**：由于光散效应造成的色彩增强。
-  - **形变比例 (Scale Ratio)**：控制光学透视畸变的倍率。
-
-- **交互式实验室 (Playground)**
-  系统集成实时调试沙盒，支持测试不同几何形状（正圆、胶囊、多边形容器）在各种物理参数下的视觉极限表现。
+**SVG algorithms** use `backdrop-filter` with SVG `feDisplacementMap` — zero GPU context, DOM-native.  
+**WebGL algorithms** render onto a `<canvas>` overlay — full GPU pipeline with real-time SDF refraction.
 
 ---
 
-## 快速开始 (Getting Started)
+## Quick Start
 
-### 环境依赖
-- React 18+
-- Vite
-- Framer Motion (用于交互动效)
-- Tailwind CSS
-
-### 部署与运行
 ```bash
-# 安装依赖
 npm install
+npm run dev          # http://localhost:3000
+```
 
-# 启动开发服务器
-npm run dev
+### Pages
+
+| Route | Description |
+|-------|-------------|
+| `/` | Modern landing page (Kyant WebGL glass cards, dark/light mode) |
+| `/studio` | Interactive playground — switch algorithms, adjust parameters, test demos |
+| `/docs` | Documentation browser |
+
+---
+
+## Architecture
+
+```
+src/
+├── lib/
+│   ├── liquid-glass.ts          # LiuNian algorithm (SVG, Snell's Law)
+│   ├── glass-logic.ts           # Core physics: refraction curve, displacement map, specular layer
+│   ├── webgl/
+│   │   ├── core.ts              # WebGL2 context, shader compilation, FBO management
+│   │   ├── shaders.ts           # GLSL shader sources (blur, SDF, Kyant glass)
+│   │   ├── renderer.ts          # Multi-pass render pipeline
+│   │   └── algorithms/kyant.ts  # Kyant algorithm parameters
+│   └── svg/
+│       ├── index.ts             # SVG algorithm exports
+│       └── algorithms/
+│           ├── liunian.ts       # Re-exports liquid-glass.ts
+│           └── deepika.ts       # Gradient ramp + chromatic aberration
+├── components/
+│   ├── UnifiedGlass.tsx         # Algorithm dispatcher (routes to correct renderer)
+│   ├── WebGLGlass.tsx           # WebGL canvas overlay component
+│   ├── DeepikaGlassComponent.tsx # Deepika SVG component
+│   ├── SharedUI.tsx             # GlassComponent (LiuNian SVG) + ControlSlider
+│   ├── AppleSlider.tsx          # iOS-style slider for Studio controls
+│   └── ...                      # HomeUI, ControlCenter, NavIcons, etc.
+├── pages/
+│   ├── Home.tsx                 # Landing page with WebGL glass cards
+│   └── Studio.tsx               # Interactive algorithm playground
+└── constants.ts                 # Scene URLs and default glass params
 ```
 
 ---
 
-## 组件复用与集成 (Integration)
+## Usage
 
-本项目采用高度解耦的架构设计。若要在您的生产环境中使用该效果，建议提取以下核心逻辑：
+### UnifiedGlass (recommended)
 
-1. **`src/components/GlassFilter.tsx`**: 核心滤镜定义与管线算法。
-2. **`src/App.tsx` 中的 `GlassComponent`**: 封装了 `ResizeObserver` 与像素校准逻辑的响应式容器。
-
-**代码示例：**
+The `UnifiedGlass` component automatically dispatches to the correct renderer:
 
 ```tsx
-<GlassComponent 
-  id="unique-glass-id" 
-  sceneUrl={currentBackgroundUrl}
-  params={{ 
-    radius: 32, 
-    blur: 5, 
-    glassThickness: 60, 
-    bezelWidth: 20,
-    refractiveIndex: 1.52,
-    refractionSaturation: 1.2
+import { UnifiedGlass } from './components/UnifiedGlass';
+
+<UnifiedGlass
+  id="my-glass"
+  width={400}
+  height={200}
+  sceneUrl="https://example.com/background.jpg"
+  algorithm="kyant"   // 'liunian' | 'deepika' | 'kyant'
+  params={{
+    radius: 24,
+    blur: 8,
+    ior: 1.52,
+    specularOpacity: 0.4,
   }}
 >
-  {/* 您的业务 UI */}
-</GlassComponent>
+  <div>Your content here</div>
+</UnifiedGlass>
+```
+
+### Individual Components
+
+```tsx
+// LiuNian (SVG, Snell's Law)
+import { GlassComponent } from './components/SharedUI';
+
+// Deepika (SVG, gradient ramps)
+import { DeepikaGlassComponent } from './components/DeepikaGlassComponent';
+
+// Kyant (WebGL2, GPU)
+import { WebGLGlass } from './components/WebGLGlass';
+```
+
+### Standalone (vanilla JS)
+
+```ts
+import { liquidGlass } from './lib/liquid-glass';
+
+const glass = liquidGlass(document.querySelector('.my-card'), {
+  radius: 32,
+  thickness: 60,
+  ior: 1.52,
+});
+glass.refresh();   // recompute after resize
+glass.destroy();   // cleanup
 ```
 
 ---
 
-## 关于分发至 NPM (Publishing to NPM)
+## GlassParams Interface
 
-本项目的核心逻辑完全具备发布为独立 NPM UI 组件库的条件。
-**建议流程：**
-- 使用 Vite 的 `Library Mode` 进行打包。
-- 将 `src/lib/glass-logic.ts` 与 `GlassFilter` 封装为通用的 React/Vue Wrapper。
-- 导出类型定义文件 (*.d.ts)。
+```ts
+interface GlassParams {
+  radius?: number;              // Corner radius (px)
+  blur?: number;                // Backdrop blur (px)
+  thickness?: number;           // Glass thickness (LiuNian)
+  edgeWidth?: number;           // Bezel width (LiuNian)
+  ior?: number;                 // Index of refraction
+  specularOpacity?: number;     // Highlight opacity (0-1)
+  specularHardness?: number;    // Highlight sharpness
+  specularAngle?: number;       // Light direction (radians)
+  dynamicSpecular?: boolean;    // Mouse-tracking highlight
+  backdropSaturation?: number;  // Color saturation boost
+  displacementScale?: number;   // Displacement multiplier
+  tintColor?: string;           // Overlay color
+  tintOpacity?: number;         // Overlay opacity (0-1)
+  // WebGL-specific
+  refractionHeight?: number;    // Refraction displacement strength
+  chromaticAberration?: number; // Chromatic dispersion
+  vibrancy?: number;            // Brightness + saturation boost
+  tintAmount?: number;          // Hue blend amount
+}
+```
 
 ---
 
-## 核心算法文档 (Documentation)
+## Technical Details
 
-详细的数学模型、坐标系转换算法以及 SVG 管线优化细节，请参阅：
-[**核心算法原理 (ALGORITHM.md)**](./ALGORITHM.md)
+### LiuNian (SVG)
+- Snell's Law refraction curve with 128-sample bezel profile
+- Squircle super-ellipse cross-section for realistic curved edges
+- Lambert specular highlight with configurable light angle
+- Per-pixel displacement map baking via Canvas `ImageData`
+- DPR-aware rendering (capped at 2x)
+
+### Deepika (SVG)
+- Canvas gradient ramps (R=horizontal, B=vertical) for displacement
+- Blurred gray inset mask confines refraction to edge band
+- 3-pass staggered displacement with per-channel isolation
+- Screen blending for chromatic aberration prism effect
+- O(1) map generation (just gradient fills, no per-pixel math)
+
+### Kyant (WebGL2)
+- SDF-based rounded rectangle with superelliptical corners
+- `circleMap()` refraction displacement along SDF gradient
+- Separable 2-pass Gaussian blur (GPU-native, up to 200px)
+- Per-channel chromatic dispersion
+- Fresnel brightening in LCH color space
+- Anisotropic specular glare based on surface normal angle
+- RGBA16F framebuffer for HDR-quality intermediates
 
 ---
 
-## 许可证 (License)
+## Browser Support
 
-本项目基于 **MIT License** 发布。您可以自由用于个人实验、开源项目或商业级产品的视觉构建。
+| Feature | Chrome/Edge | Safari | Firefox |
+|---------|------------|--------|---------|
+| SVG refraction | Full | Fallback (blur only) | Fallback (blur only) |
+| WebGL refraction | Full | Full | Full |
+
+SVG algorithms require `backdrop-filter: url(#id)` support (Chromium only).  
+WebGL algorithms work in any browser with WebGL2 support.
+
+Browsers without SVG support get a frosted-glass CSS fallback: `backdrop-filter: blur(16px) saturate(1.2)`.
+
+---
+
+## Build
+
+```bash
+npm run build        # production build to dist/
+npm run lint         # TypeScript check
+npm run preview      # preview production build
+```
+
+---
+
+## License
+
+MIT License. Free for personal, open-source, and commercial use.
