@@ -8,7 +8,7 @@ import React, { useRef, useEffect, useState, type ReactNode } from 'react';
 import { GlassRenderer, DEFAULT_GLASS_RENDERER_PARAMS, type GlassRendererParams } from '../lib/webgl/renderer';
 import type { GlassParams } from './SharedUI';
 
-export type WebGLGlassAlgorithm = 'kyant' | 'liquidglassstudio' | 'ybouane';
+export type WebGLGlassAlgorithm = 'kyant' | 'liquidglassstudio';
 
 interface WebGLGlassProps {
   id: string;
@@ -69,15 +69,6 @@ const ALGO_DEFAULTS: Record<WebGLGlassAlgorithm, Partial<GlassRendererParams>> =
     vibrancy: 0.3,
     tintAmount: 0.25,
     highlightIntensity: 0.7,
-  },
-  ybouane: {
-    refractionHeight: 12,
-    ior: 1.52,
-    chromaticAberration: 2,
-    blurMix: 0.5,
-    vibrancy: 0.6,
-    tintAmount: 0.1,
-    highlightIntensity: 0.4,
   },
 };
 
