@@ -1,7 +1,7 @@
 /**
  * Unified Glass Component — dispatches to SVG or WebGL renderer based on algorithm.
  * SVG: liunian, deepika → GlassComponent (backdrop-filter)
- * WebGL: kyant, liquidglassstudio, ybouane → WebGLGlass (canvas overlay)
+ * WebGL: kyant, liquidglassstudio → WebGLGlass (canvas overlay)
  */
 
 import React, { type ReactNode } from 'react';
@@ -21,7 +21,6 @@ export const ALGORITHMS: Record<AlgorithmType, { id: string; name: string }[]> =
   webgl: [
     { id: 'kyant', name: 'Kyant' },
     { id: 'liquidglassstudio', name: 'Studio' },
-    { id: 'ybouane', name: 'Ybouane' },
   ],
 };
 

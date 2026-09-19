@@ -41,7 +41,7 @@ export function createProgram(
   return program;
 }
 
-// ─── Fullscreen Quad ─────────────────────────────────────────────────────────
+// ─── Fullscreen Quad (per-context) ───────────────────────────────────────────
 
 const QUAD_VERT = `#version 300 es
 in vec2 aPos;
@@ -51,20 +51,21 @@ void main() {
   gl_Position = vec4(aPos, 0.0, 1.0);
 }`;
 
-let _quadVao: WebGLVertexArrayObject | null = null;
-let _quadVbo: WebGLBuffer | null = null;
+const _quadCache = new WeakMap<WebGL2RenderingContext, { vao: WebGLVertexArrayObject; vbo: WebGLBuffer }>();
 
 export function ensureQuad(gl: WebGL2RenderingContext): WebGLVertexArrayObject {
-  if (_quadVao) return _quadVao;
-  _quadVao = gl.createVertexArray()!;
-  _quadVbo = gl.createBuffer()!;
-  gl.bindVertexArray(_quadVao);
-  gl.bindBuffer(gl.ARRAY_BUFFER, _quadVbo);
+  const cached = _quadCache.get(gl);
+  if (cached) return cached.vao;
+  const vao = gl.createVertexArray()!;
+  const vbo = gl.createBuffer()!;
+  gl.bindVertexArray(vao);
+  gl.bindBuffer(gl.ARRAY_BUFFER, vbo);
   gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1,-1, 1,-1, -1,1, 1,1]), gl.STATIC_DRAW);
   gl.enableVertexAttribArray(0);
   gl.vertexAttribPointer(0, 2, gl.FLOAT, false, 0, 0);
   gl.bindVertexArray(null);
-  return _quadVao;
+  _quadCache.set(gl, { vao, vbo });
+  return vao;
 }
 
 export function drawQuad(gl: WebGL2RenderingContext): void {
